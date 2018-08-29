@@ -54,8 +54,8 @@ $(function(){
 						imgPixels[i] = brightness * pixels[i] / 255;
 						imgPixels[i + 1] = brightness * pixels[i + 1] / 255;
 						imgPixels[i + 2] = brightness * pixels[i + 2] / 255;
-						typeof p.color[3]!=="undefined" && p.color[3] <= 1 && (
-							imgPixels[i + 3] = p.color[3] * pixels[i + 3]
+						typeof p.koef[3]!=="undefined" && p.koef[3] <= 1 && (
+							imgPixels[i + 3] = p.koef[3] * pixels[i + 3]
 						)
 					}
 					ctx.putImageData(imgData, 0, 0);
