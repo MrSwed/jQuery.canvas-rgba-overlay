@@ -11,14 +11,15 @@ $(function(){
 			var
 				_t = this,
 				brightness, $canvas, ctx, data, i,
-				imgCtx, imgData, imgPixels, pixels, _i,
+				ctx, imgData, imgPixels, pixels, _i,
 				_ref;
 			p = $.extend({}, {
 				img: $(_t).find("img"),
 				width: 0,
 				height: 0,
 				color: "rgba(127,127,127,0.1)",
-				koef: "0.37,0.5,0.16",
+				koef: false, //"0.37,0.5,0.16",
+				contrast: false,
 				debug: false
 			}, p);
 			//if the browser supports canvas overlays and we haven't already made one
@@ -26,6 +27,22 @@ $(function(){
 			!p.height && (p.height = image.naturalHeight);
 			!p.width && (p.width = image.naturalWidth);
 			if (Modernizr.canvas && !Modernizr.touch && p.height > 0) {
+
+				function contrastPixel(pixel, contrast){  //input range [-100..100]
+					contrast = (contrast / 100) + 1;  //convert to decimal & shift range: [0..2]
+					var intercept = 128 * (1 - contrast);
+					return pixel * contrast + intercept;
+				}
+				
+				function linearLightPixel(pTarget, pBland){
+					return ((pBland > 128) * (pTarget + 2 * (pBland - 128)) + (pBland <= 128) * (pTarget + 2 * pBland - 255));
+				}
+				
+				// function correctByAlpha(pTarget, pBland, pAlpha) { // pAlfa 0 .. 1 (opacity)
+				// 	return pTarget + (pBland - pTarget) * pAlpha;
+				// }
+// ----
+				
 				if (!$(p.img).get(0).complete) {
 					p.debug && console.log("Not ready yes, try after timeout");
 					setTimeout(function(){
@@ -34,29 +51,54 @@ $(function(){
 				} else {
 					p.debug && console.log("Ready: ", p, image);
 					$canvas = document.createElement('canvas');
+					// ctx = $canvas.getContext('2d');
 					ctx = $canvas.getContext('2d');
-					imgCtx = $canvas.getContext('2d');
+					
 					if (typeof p.color === "string") p.color = p.color.replace(/^.*rgba?\(([\d., ]+)\).*$/, "$1").split(/[, ]+/, 4);
 					if (typeof p.koef === "string") p.koef = p.koef.split(/[, ]+/, 4);
 					$canvas.width = p.width;
 					$canvas.height = p.height;
-					ctx.fillStyle = "rgb" + (p.color.length === 3 ? "" : "a") + "(" + (p.color.join(',')) + ")";
-					ctx.fillRect(0, 0, $canvas.width, $canvas.height);
-					data = ctx.getImageData(0, 0, p.width, p.height);
-					pixels = data.data;
-					imgCtx.drawImage(image, 0, 0, p.width, p.height);
-					imgData = imgCtx.getImageData(0, 0, p.width, p.height);
+					ctx.drawImage(image, 0, 0, p.width, p.height);
+					imgData = ctx.getImageData(0, 0, p.width, p.height);
 					imgPixels = imgData.data;
+					p.debug && console.log("pixels: ", imgPixels);
 					// p.debug && console.log("imgPixels: ", imgPixels);
 
 					for (i = 0, _ref = imgPixels.length; i <= _ref; i += 4) {
-						brightness = p.koef[0] * imgPixels[i] + p.koef[1] * imgPixels[i + 1] + p.koef[2] * imgPixels[i + 2];
-						imgPixels[i] = brightness * pixels[i] / 255;
-						imgPixels[i + 1] = brightness * pixels[i + 1] / 255;
-						imgPixels[i + 2] = brightness * pixels[i + 2] / 255;
-						typeof p.koef[3]!=="undefined" && p.koef[3] <= 1 && (
-							imgPixels[i + 3] = p.koef[3] * pixels[i + 3]
-						)
+/* gray */
+						imgPixels[i] = imgPixels[i + 1] = imgPixels[i + 2] = 
+							0.299 * imgPixels[i] + 0.587 * imgPixels[i + 1] + 0.114 * imgPixels[i + 2];
+/* /gray */
+
+/* linear light */
+						imgPixels[i] = linearLightPixel(imgPixels[i], p.color[0]);
+						imgPixels[i + 1] = linearLightPixel(imgPixels[i + 1], p.color[1]);
+						imgPixels[i + 2] = linearLightPixel(imgPixels[i + 2], p.color[2]);
+/* /linear light */
+
+/* contrast */
+						if (p.contrast) {
+							imgPixels[i] = contrastPixel(imgPixels[i], p.contrast);
+							imgPixels[i+1] = contrastPixel(imgPixels[i+1], p.contrast);
+							imgPixels[i+2] = contrastPixel(imgPixels[i+2], p.contrast);
+						}
+/* /contrast */
+
+/* correct by alpha * /
+						if (typeof p.color[3] !== "undefined") {
+							imgPixels[i] = correctByAlpha(imgPixels[i], p.color[0], p.color[3]);
+							imgPixels[i + 1] = correctByAlpha(imgPixels[i + 1], p.color[1], p.color[3]);
+							imgPixels[i + 2] = correctByAlpha(imgPixels[i + 2], p.color[2], p.color[3]);
+						}
+/* /correct by alpha */
+
+/* koef brightness * /
+						brightness = (p.koef[0] * imgPixels[i] + p.koef[1] * imgPixels[i + 1] + p.koef[2] * imgPixels[i + 2]) / 255;
+						imgPixels[i] = brightness *  p.color[0];
+						imgPixels[i + 1] = brightness *  p.color[1];
+						imgPixels[i + 2] = brightness *  p.color[2];
+/* */
+
 					}
 					ctx.putImageData(imgData, 0, 0);
 					$(_t).append($canvas).addClass("canvas");
