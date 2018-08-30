@@ -10,31 +10,43 @@ $(function(){
 		canvasOverlay: function(p){
 			var
 				_t = this,
-				brightness, $canvas, ctx, data, i,
-				ctx, imgData, imgPixels, pixels, _i,
-				_ref;
+				$canvas, ctx, 
+				imgData, imgPixels;
+
 			p = $.extend({}, {
 				img: $(_t).find("img"),
-				width: 0,
-				height: 0,
-				color: false,
-				brightness: false,
-				contrast: false,
-				debug: false
+				width: false,      // default from img
+				height: false,
+				color: false,      // cover color array or commaseparated [R,G,B,(A)]
+				brightmix: false, // koef array or comma separated [0.34,0.5,0.16]
+				contrast: false,   // input range [-100..100]
+
+				grayscale: false, // true|false 
+				linearLight: false, // (true|false), cover by `color` in linear Light mode
+				debug: false       // debug to console. 1, 2,.. for mor info
 			}, p);
 
 			if (p.color && typeof p.color === "string") p.color = p.color.replace(/^.*rgba?\(([\d., ]+)\).*$/, "$1").split(/[, ]+/, 4);
-			if (p.brightness && typeof p.brightness === "string") p.brightness = p.brightness.split(/[, ]+/, 4);
+			if (p.brightmix && typeof p.brightmix === "string") p.brightmix = p.brightmix.split(/[, ]+/, 4);
 
 			_t.contrastPixel = function(pixel, contrast){  //input range [-100..100]
 				contrast = (contrast / 100) + 1;  //convert to decimal & shift range: [0..2]
 				var intercept = 128 * (1 - contrast);
 				return pixel * contrast + intercept;
-			}
+			};
 			
 			_t.linearLightPixel = function(pTarget, pBland){
 				return ((pBland > 128) * (pTarget + 2 * (pBland - 128)) + (pBland <= 128) * (pTarget + 2 * pBland - 255));
-			}
+			};
+			_t.brightmix = function(rgb,brK){
+				rgb = rgb || [];
+				brK = brK || [];
+				return (rgb.reduce(
+					function(s, v, k){
+						return s + v * brK[k];
+					}, 0
+				)) / 255;
+			};
 
 			// function correctByAlpha(pTarget, pBland, pAlpha) { // pAlfa 0 .. 1 (opacity)
 			// 	return pTarget + (pBland - pTarget) * pAlpha;
@@ -66,28 +78,24 @@ $(function(){
 					imgPixels = imgData.data;
 					p.debug && p.debug >1 && console.log("imgPixels: ", imgPixels);
 
-					for (i = 0, _ref = imgPixels.length; i <= _ref; i += 4) {
+					for (var i = 0, i_max = imgPixels.length; i <= i_max; i += 4) {
 /* gray */
-						imgPixels[i] = imgPixels[i + 1] = imgPixels[i + 2] = 
-							0.299 * imgPixels[i] + 
-							0.587 * imgPixels[i + 1] + 
-							0.114 * imgPixels[i + 2];
-/* /gray */
-
+						p.grayscale && (
+							imgPixels[i] = imgPixels[i + 1] = imgPixels[i + 2] =
+								0.299 * imgPixels[i] + 0.587 * imgPixels[i + 1] + 0.114 * imgPixels[i + 2]
+						);
+/* brightmix */
+						if (p.brightmix) { var brightmix = _t.brightmix(imgPixels.slice(i, i + 3),p.brightmix); }
+						
 /* each of R,G,B */
 						for(var rgbI=0;rgbI<=2;rgbI++) {
-							p.color && (imgPixels[i+rgbI] = _t.linearLightPixel(imgPixels[i+rgbI], p.color[rgbI]));
-							p.contrast && (imgPixels[i+rgbI] = _t.contrastPixel(imgPixels[i+rgbI], p.contrast));
+							if (p.color) {
+								p.brightmix && (imgPixels[i + rgbI] = brightmix * p.color[rgbI]);
+								p.linearLight && (imgPixels[i + rgbI] = _t.linearLightPixel(imgPixels[i + rgbI], p.color[rgbI]));
+							}
+							p.contrast && (imgPixels[i + rgbI] = _t.contrastPixel(imgPixels[i + rgbI], p.contrast));
 						}
-
-/* koef brightness * /
-						brightness = (p.brightness[0] * imgPixels[i] + p.brightness[1] * imgPixels[i + 1] + p.brightness[2] * imgPixels[i + 2]) / 255;
-						imgPixels[i] = brightness *  p.color[0];
-						imgPixels[i + 1] = brightness *  p.color[1];
-						imgPixels[i + 2] = brightness *  p.color[2];
-/* */
-
-					}
+					} /* for pixels data*/
 					ctx.putImageData(imgData, 0, 0);
 					$(_t).append($canvas).addClass("canvas");
 				}
