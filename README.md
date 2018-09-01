@@ -1,5 +1,6 @@
-# jQuery.canvas-rgba-overlay
+# jQuery.canvas-rgba-overlay v0.2
 
+https://github.com/MrSwed/jQuery.canvas-rgba-overlay
 
 ## Parameters
 ```JS
