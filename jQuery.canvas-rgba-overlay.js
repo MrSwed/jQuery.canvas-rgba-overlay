@@ -11,6 +11,10 @@ $(function(){
 
 	$.fn.extend({
 		canvasOverlay: function(p){
+			if (!(Modernizr.canvas && !Modernizr.touch)) {
+				console.log("Error: Not in Modernizr.canvas && !Modernizr.touch ", Modernizr.canvas, Modernizr.touch);
+				return $(this);
+			}
 			return $(this).each(function(){
 			var
 				t = this,
@@ -56,21 +60,26 @@ $(function(){
 			// 	return pTarget + (pBland - pTarget) * pAlpha;
 			// }
 // ----
-			
-
+				t.deInit = function(){
+					$(">canvas", t).remove();
+					return t;
+				};
+			t.init = function() {
 			//if the browser supports canvas overlays and we haven't already made one
 			var image = $(t.p.img).get(0);
 			!t.p.height && (t.p.height = image.naturalHeight);
 			!t.p.width && (t.p.width = image.naturalWidth);
-			if (Modernizr.canvas && !Modernizr.touch && t.p.height > 0) {
-
-				
+				if (!t.p.height || !t.p.width) {
+					t.p.debug && console.log("Error: No t.p.width && t.p.height", t.p.width, t.p.height);
+					return false;
+				} 
 				if (!$(t.p.img).get(0).complete) {
 					t.p.debug && console.log("Not ready yes, try after timeout");
 					setTimeout(function(){
-						$(t).canvasOverlay(t.p);
+						t.init();
 					}, 200);
 				} else {
+					t.deInit();
 					t.p.debug && console.log("Ready: ", t.p, image);
 					$canvas = document.createElement('canvas');
 					ctx = $canvas.getContext('2d');
@@ -103,9 +112,9 @@ $(function(){
 					ctx.putImageData(imgData, 0, 0);
 					$(t).append($canvas).addClass("canvas");
 				}
-			} else {
-				t.p.debug && console.log("Error: Not in Modernizr.canvas && !Modernizr.touch && t.p.height", Modernizr.canvas, Modernizr.touch, t.p.height);
-			}
+				 return t;
+			};
+				t.init();
 			});
 		}
 	});
