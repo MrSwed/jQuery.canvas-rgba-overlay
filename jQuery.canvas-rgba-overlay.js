@@ -11,13 +11,14 @@ $(function(){
 
 	$.fn.extend({
 		canvasOverlay: function(p){
+			return $(this).each(function(){
 			var
-				_t = this,
+				t = this,
 				$canvas, ctx, 
 				imgData, imgPixels;
 
-			p = $.extend({}, {
-				img: $(_t).find("img"),
+			t.p = $.extend({}, {
+				img: $(t).find("img"),
 				width: false,      // default from img
 				height: false,
 				color: false,      // cover color array or commaseparated [R,G,B,(A)]
@@ -29,19 +30,19 @@ $(function(){
 				debug: false       // debug to console. 1, 2,.. for mor info
 			}, p);
 
-			if (p.color && typeof p.color === "string") p.color = p.color.replace(/^.*rgba?\(([\d., ]+)\).*$/, "$1").split(/[, ]+/, 4);
-			if (p.brightmix && typeof p.brightmix === "string") p.brightmix = p.brightmix.split(/[, ]+/, 4);
+			if (t.p.color && typeof t.p.color === "string") t.p.color = t.p.color.replace(/^.*rgba?\(([\d., ]+)\).*$/, "$1").split(/[, ]+/, 4);
+			if (t.p.brightmix && typeof t.p.brightmix === "string") t.p.brightmix = t.p.brightmix.split(/[, ]+/, 4);
 
-			_t.contrastPixel = function(pixel, contrast){  //input range [-100..100]
+			t.contrastPixel = function(pixel, contrast){  //input range [-100..100]
 				contrast = (contrast / 100) + 1;  //convert to decimal & shift range: [0..2]
 				var intercept = 128 * (1 - contrast);
 				return pixel * contrast + intercept;
 			};
 			
-			_t.linearLightPixel = function(pTarget, pBland){
+			t.linearLightPixel = function(pTarget, pBland){
 				return ((pBland > 128) * (pTarget + 2 * (pBland - 128)) + (pBland <= 128) * (pTarget + 2 * pBland - 255));
 			};
-			_t.brightmix = function(rgb,brK){
+			t.brightmix = function(rgb,brK){
 				rgb = rgb || [];
 				brK = brK || [];
 				return (rgb.reduce(
@@ -58,53 +59,54 @@ $(function(){
 			
 
 			//if the browser supports canvas overlays and we haven't already made one
-			var image = $(p.img).get(0);
-			!p.height && (p.height = image.naturalHeight);
-			!p.width && (p.width = image.naturalWidth);
-			if (Modernizr.canvas && !Modernizr.touch && p.height > 0) {
+			var image = $(t.p.img).get(0);
+			!t.p.height && (t.p.height = image.naturalHeight);
+			!t.p.width && (t.p.width = image.naturalWidth);
+			if (Modernizr.canvas && !Modernizr.touch && t.p.height > 0) {
 
 				
-				if (!$(p.img).get(0).complete) {
-					p.debug && console.log("Not ready yes, try after timeout");
+				if (!$(t.p.img).get(0).complete) {
+					t.p.debug && console.log("Not ready yes, try after timeout");
 					setTimeout(function(){
-						$(_t).canvasOverlay(p);
+						$(t).canvasOverlay(t.p);
 					}, 200);
 				} else {
-					p.debug && console.log("Ready: ", p, image);
+					t.p.debug && console.log("Ready: ", t.p, image);
 					$canvas = document.createElement('canvas');
 					ctx = $canvas.getContext('2d');
 					
-					$canvas.width = p.width;
-					$canvas.height = p.height;
-					ctx.drawImage(image, 0, 0, p.width, p.height);
-					imgData = ctx.getImageData(0, 0, p.width, p.height);
+					$canvas.width = t.p.width;
+					$canvas.height = t.p.height;
+					ctx.drawImage(image, 0, 0, t.p.width, t.p.height);
+					imgData = ctx.getImageData(0, 0, t.p.width, t.p.height);
 					imgPixels = imgData.data;
-					p.debug && p.debug >1 && console.log("imgPixels: ", imgPixels);
+					t.p.debug && t.p.debug >1 && console.log("imgPixels: ", imgPixels);
 
 					for (var i = 0, i_max = imgPixels.length; i <= i_max; i += 4) {
 /* gray */
-						p.grayscale && (
+						t.p.grayscale && (
 							imgPixels[i] = imgPixels[i + 1] = imgPixels[i + 2] =
 								0.299 * imgPixels[i] + 0.587 * imgPixels[i + 1] + 0.114 * imgPixels[i + 2]
 						);
 /* brightmix */
-						if (p.brightmix) { var brightmix = _t.brightmix(imgPixels.slice(i, i + 3),p.brightmix); }
+						if (t.p.brightmix) { var brightmix = t.brightmix(imgPixels.slice(i, i + 3),t.p.brightmix); }
 						
 /* each of R,G,B */
 						for(var rgbI=0;rgbI<=2;rgbI++) {
-							if (p.color) {
-								p.brightmix && (imgPixels[i + rgbI] = brightmix * p.color[rgbI]);
-								p.linearLight && (imgPixels[i + rgbI] = _t.linearLightPixel(imgPixels[i + rgbI], p.color[rgbI]));
+							if (t.p.color) {
+								t.p.brightmix && (imgPixels[i + rgbI] = brightmix * t.p.color[rgbI]);
+								t.p.linearLight && (imgPixels[i + rgbI] = t.linearLightPixel(imgPixels[i + rgbI], t.p.color[rgbI]));
 							}
-							p.contrast && (imgPixels[i + rgbI] = _t.contrastPixel(imgPixels[i + rgbI], p.contrast));
+							t.p.contrast && (imgPixels[i + rgbI] = t.contrastPixel(imgPixels[i + rgbI], t.p.contrast));
 						}
 					} /* for pixels data*/
 					ctx.putImageData(imgData, 0, 0);
-					$(_t).append($canvas).addClass("canvas");
+					$(t).append($canvas).addClass("canvas");
 				}
 			} else {
-				p.debug && console.log("Error: Not in Modernizr.canvas && !Modernizr.touch && p.height", Modernizr.canvas, Modernizr.touch, p.height);
+				t.p.debug && console.log("Error: Not in Modernizr.canvas && !Modernizr.touch && t.p.height", Modernizr.canvas, Modernizr.touch, t.p.height);
 			}
+			});
 		}
 	});
 });
